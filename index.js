@@ -13,12 +13,23 @@ app.get('/', function(req, res){
 io.on('connection', function(socket){
 	console.log('connected');
 
-	socket.on('pause', function(){
-		socket.broadcast.emit('pause');
+	socketIdList.splice(0,0,socket.id);
+	console.log(socketIdList);
+	if(socketIdList.length > 1){
+		var lateSocketId = socketIdList[socketIdList.length-1];
+		io.to(lateSocketId).emit('getCurrentTime');
+	}
+
+	socket.on('getCurrentTime', function(data){
+		io.to(socketIdList[0]).emit('setCurrentTime', data);
 	});
 
-	socket.on('play', function(){
-		socket.broadcast.emit('play');
+	socket.on('pause', function(data){
+		socket.broadcast.emit('pause',data);
+	});
+
+	socket.on('play', function(data){
+		socket.broadcast.emit('play',data);
 	});
 
 	socket.on('disconnect', function(){

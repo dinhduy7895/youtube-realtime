@@ -16,44 +16,143 @@
 </head>
 <body>
 <!-- <iframe id="player" frameborder="0" allowfullscreen="1" title="YouTube video player" width="640" height="390" src="https://www.youtube.com/embed/0Bmhjf0rKe8?enablejsapi=1&amp;origin=http%3A%2F%2Flocalhost%3A3030&amp;widgetid=1"></iframe> -->
-<iframe id="player" src="http://www.youtube.com/embed/M7lc1UVf-VE?enablejsapi=1&amp;widgetid=1" frameborder="0"></iframe>
+<div >
+    <p>dsdasdasdsa</p>
+    <ul class="image-grid" id="list">
+        <li>
+            <iframe class="yt_players" id="player0" width="385" height="230" src="http://www.youtube.com/embed/erDxb4IkgjM?rel=0&wmode=Opaque&enablejsapi=1"
+            frameborder="0" allowfullscreen></iframe>
+        </li>
+        <li>
+            <iframe class="yt_players" id="player1" width="385" height="230" src="http://www.youtube.com/embed/wSrA5iQGlDc?rel=0&wmode=Opaque&enablejsapi=1"
+            frameborder="0" allowfullscreen></iframe>
+        </li>
+        <li>
+            <iframe class="yt_players" id="player2" width="385" height="230" src="http://www.youtube.com/embed/c7b_WLkztXc?rel=0&wmode=Opaque&enablejsapi=1"
+            frameborder="0" allowfullscreen></iframe>
+        </li>
+    </ul>
+
+</div>
     <script src="http://www.youtube.com/player_api"></script>
-        <script src="/socket.io/socket.io.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- <script type="text/javascript" src="js/js.js"></script> -->
 
     <script>
-        var player;
-            var socket = io();
-
-        function onYouTubePlayerAPIReady() {
-            player = new YT.Player('player', {
-              events: {
-                onStateChange: onPlayerStateChange
-              }
+    players = new Array();
+    var socket = io();
+    var statusCurrent;
+    var isNewSocket = 0 ;
+    function onYouTubeIframeAPIReady() {
+        var temp = $("iframe.yt_players");
+        for (var i = 0; i < temp.length; i++) {
+            var t = new YT.Player($(temp[i]).attr('id'), {
+                events: {
+                    'onStateChange': onPlayerStateChange,
+                    'onReady' : ready
+                }
             });
+            players.push(t);
         }
 
-        // when video ends
-        function onPlayerStateChange(event) {     
-            if(event.data === YT.PlayerState.PLAYING ) {          
-                socket.emit('play');
-            }
+    }   
 
-            if(event.data === YT.PlayerState.PAUSED ) {          
-                socket.emit('pause');
+    function ready(event){
+        if(statusCurrent != null && isNewSocket == 1){
+            if(statusCurrent[event.target.a.src]['currentTime'] > 0) {
+                event.target.seekTo(statusCurrent[event.target.a.src]['currentTime']);
+                if(statusCurrent[event.target.a.src]['state'] == YT.PlayerState.PLAYING){
+                    event.targer.playVideo();
+                }
+                else 
+                    event.target.pauseVideo();
+            }
+        }    
+    }
+
+    function onPlayerStateChange(event) {
+        console.log(event.data );
+        if (event.data == YT.PlayerState.PLAYING) {
+            var src = event.target.a.src;
+            var order =  play(src);
+            socket.emit('play', order);
+        }
+        else if (event.data == YT.PlayerState.PAUSED) {
+            var src = event.target.a.src;
+            var order = pause(src);
+            socket.emit('pause',order);
+        }
+    }
+
+    function pause(src){
+        var order ;
+        var tempPlayers = $("iframe.yt_players");
+        for (var i = 0; i < players.length; i++) {
+            if (players[i].a.src == src){
+                players[i].pauseVideo();  
+                order = i ;
+                return order;
             }
         }
+    }
 
-        socket.on('play', function(){
-            $('#player')[0].contentWindow.postMessage('{"event":"command","func":"' + 'playVideo' + '","args":""}', '*');    
+    function play(src){
+        var order ;
+        var tempPlayers = $("iframe.yt_players");
+        for (var i = 0; i < players.length; i++) {
+            if (players[i].a.src != src){
+                players[i].pauseVideo();
+            } else {
+                order = i ;
+            }
+        }
+        return order;
+    }
 
-        });
+    socket.on('getCurrentTime', function(){
+        var data = {};
+        var state = currentTime = null;
+        for (var i = 0; i < players.length; i++) {
+             state =   players[i].getPlayerState();
+             currentTime =   players[i].getCurrentTime();
+             var src = players[i].a.src;
+              data[src] = {  
+                'currentTime' : currentTime,
+                'state' : state,
+                             }   
+        }
+        socket.emit('getCurrentTime',JSON.stringify(data) );
+    });
+
+    socket.on('setCurrentTime', function(data){
+       
+            // console.log(data.order + " " + data.currentTime);
+            // currentTime  = parseInt(data.currentTime,10);
+            // order = parseInt(data.order, 10);
+            // players[order].playVideo();
+            // players[order].seekTo(currentTime, true);
+            // var temp = $("iframe.yt_players");
+            // var player = players[data.order];
+            // $(temp[data.order]).attr('src',"");
+            // $(temp[data.order]).attr('src',player.a.src + '?start=2');
+            // console.log(player.a.src);
+             // players[data.order].playVideo();
+            // play(players[order].a.src);
+            statusCurrent = JSON.parse(data);
+            isNewSocket = 1;
+        
+    })
 
 
-        socket.on('pause', function(){
-            $('#player')[0].contentWindow.postMessage('{"event":"command","func":"' + 'pauseVideo' + '","args":""}', '*');    
+    socket.on('play', function(order){
+        players[order].playVideo();
+        play(players[order].a.src);
+    });
 
-        });
+
+    socket.on('pause', function(order){
+        players[order].pauseVideo();
+    });
     </script>
-    <script type="text/javascript" src="js/js.js"></script>
 </body>
 </html>
