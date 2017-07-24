@@ -28,8 +28,9 @@ io.on('connection', function(socket){
 		socket.broadcast.emit('pause',data);
 	});
 
-	socket.on('play', function(data){
-		socket.broadcast.emit('play',data);
+	socket.on('play', function(order, currentTime){
+		console.log(1);
+		socket.broadcast.emit('play',order, currentTime);
 	});
 
 	socket.on('disconnect', function(){

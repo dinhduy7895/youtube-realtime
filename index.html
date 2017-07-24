@@ -43,6 +43,8 @@
     var socket = io();
     var statusCurrent;
     var isNewSocket = 0 ;
+    var timeChange = null;
+    var isFromSocket = false;
     function onYouTubeIframeAPIReady() {
         var temp = $("iframe.yt_players");
         for (var i = 0; i < temp.length; i++) {
@@ -71,11 +73,15 @@
     }
 
     function onPlayerStateChange(event) {
-        console.log(event.data );
-        if (event.data == YT.PlayerState.PLAYING) {
+        console.log(isFromSocket);
+        if(isFromSocket == true){
+            return; 
+        }
+        else if (event.data == YT.PlayerState.PLAYING) {
             var src = event.target.a.src;
             var order =  play(src);
-            socket.emit('play', order);
+            var currentTime = event.target.getCurrentTime();    
+            socket.emit('play', order, currentTime);
         }
         else if (event.data == YT.PlayerState.PAUSED) {
             var src = event.target.a.src;
@@ -94,6 +100,7 @@
                 return order;
             }
         }
+        isFromSocket = false;
     }
 
     function play(src){
@@ -107,51 +114,44 @@
             }
         }
         return order;
+        isFromSocket = false;
     }
 
     socket.on('getCurrentTime', function(){
         var data = {};
         var state = currentTime = null;
         for (var i = 0; i < players.length; i++) {
-             state =   players[i].getPlayerState();
-             currentTime =   players[i].getCurrentTime();
-             var src = players[i].a.src;
-              data[src] = {  
-                'currentTime' : currentTime,
-                'state' : state,
-                             }   
+            state =   players[i].getPlayerState();
+            currentTime =   players[i].getCurrentTime();
+            var src = players[i].a.src;
+                data[src] = {  
+                    'currentTime' : currentTime,
+                    'state' : state,
+            }   
         }
         socket.emit('getCurrentTime',JSON.stringify(data) );
     });
 
     socket.on('setCurrentTime', function(data){
-       
-            // console.log(data.order + " " + data.currentTime);
-            // currentTime  = parseInt(data.currentTime,10);
-            // order = parseInt(data.order, 10);
-            // players[order].playVideo();
-            // players[order].seekTo(currentTime, true);
-            // var temp = $("iframe.yt_players");
-            // var player = players[data.order];
-            // $(temp[data.order]).attr('src',"");
-            // $(temp[data.order]).attr('src',player.a.src + '?start=2');
-            // console.log(player.a.src);
-             // players[data.order].playVideo();
-            // play(players[order].a.src);
-            statusCurrent = JSON.parse(data);
-            isNewSocket = 1;
-        
+        statusCurrent = JSON.parse(data);
+        isNewSocket = 1;
     })
 
 
-    socket.on('play', function(order){
+    socket.on('play', function(order, currentTime){
+        isFromSocket = true;
+        players[order].seekTo(currentTime);
         players[order].playVideo();
         play(players[order].a.src);
+        // ;
     });
 
 
     socket.on('pause', function(order){
+        isFromSocket = true;
         players[order].pauseVideo();
+        isFromSocket = false;
+
     });
     </script>
 </body>
